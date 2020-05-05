@@ -1,0 +1,55 @@
+version: "3.8"
+services:
+  productservice:
+    build:
+      context: ./ProductService
+      dockerfile: Dockerfile
+
+    depends_on: 
+      - database
+      - configservice
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+  proxy:
+    build:
+      context: ./Nginx
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on: 
+      - frontend
+      - productservice
+      - keycloak
+  keycloak:
+    image: jboss/keycloak:latest
+    environment: 
+      - KEYCLOAK_USER=root
+      - KEYCLOAK_PASSWORD=root@123
+      - KEYCLOAK_IMPORT=/tmp/realm-import.json
+    ports:
+      - "9000:8080"
+    volumes: 
+      - "./Keycloak/realm-import.json:/tmp/realm-import.json"
+  configservice:
+    build:
+      context: ./ConfigManagement
+      dockerfile: Dockerfile
+    healthcheck:
+      test : ["CMD", "curl", "http://configservice:8080/product/default"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    ports:
+      - "8091:8080"
+  database:
+    image: mysql:latest
+    command: mysqld --init-file="/tmp/database/install_db.sql"
+    restart: always
+    environment: 
+      MYSQL_ROOT_PASSWORD: root@123
+    volumes: 
+      - "./MySQL:/tmp/database"
+    ports:
+      - "3306:3306"
